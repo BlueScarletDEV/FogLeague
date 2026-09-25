@@ -32,15 +32,28 @@ const allowedOrigins = [
   'http://127.0.0.1:5173',
   'http://localhost:3001',
   'http://127.0.0.1:3001',
+  'https://fogleague.onrender.com',
 ];
+
 if (process.env.FRONTEND_URL) {
   allowedOrigins.push(process.env.FRONTEND_URL.replace(/\/$/, ''));
+}
+if (process.env.RENDER_EXTERNAL_URL) {
+  allowedOrigins.push(process.env.RENDER_EXTERNAL_URL.replace(/\/$/, ''));
 }
 
 const corsOptions = {
   origin: (origin, callback) => {
-    // Requêtes serveur-à-serveur, curl, webhooks ou origines whitelistées
-    if (!origin || allowedOrigins.includes(origin)) {
+    // Requêtes sans origine (same-origin, curl, server-to-server)
+    if (!origin) {
+      return callback(null, true);
+    }
+    const cleanOrigin = origin.replace(/\/$/, '');
+    if (
+      allowedOrigins.includes(cleanOrigin) ||
+      /^https:\/\/[a-zA-Z0-9-]+\.onrender\.com$/.test(cleanOrigin) ||
+      /^https:\/\/[a-zA-Z0-9-]+\.vercel\.app$/.test(cleanOrigin)
+    ) {
       return callback(null, true);
     }
     console.warn(`[Security-CORS] 🚨 Blocage d'une tentative non autorisée depuis : ${origin}`);
