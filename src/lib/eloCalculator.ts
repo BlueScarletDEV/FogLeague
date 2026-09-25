@@ -14,12 +14,21 @@ export function getMistRank(elo: number): number {
 // Alias for compatibility
 export const getFaceitLevel = getMistRank;
 
-export function getLevelProgress(elo: number): { currentLevel: number; progressPercent: number; nextLevelElo: number } {
+export function getLevelProgress(elo: number, matchesCount: number = 0): { currentLevel: number; progressPercent: number; nextLevelElo: number; isCalibrating: boolean } {
+  if (matchesCount === 0) {
+    return {
+      currentLevel: 1,
+      progressPercent: 0,
+      nextLevelElo: 1250,
+      isCalibrating: true,
+    };
+  }
+
   const currentLevel = getMistRank(elo);
   const thresholds = [0, 800, 951, 1101, 1251, 1401, 1551, 1701, 1851, 2001];
   
   if (currentLevel === 10) {
-    return { currentLevel: 10, progressPercent: 100, nextLevelElo: 2500 };
+    return { currentLevel: 10, progressPercent: 100, nextLevelElo: 2500, isCalibrating: false };
   }
 
   const minForCurrent = thresholds[currentLevel - 1];
@@ -32,6 +41,7 @@ export function getLevelProgress(elo: number): { currentLevel: number; progressP
     currentLevel,
     progressPercent,
     nextLevelElo: maxForCurrent,
+    isCalibrating: false,
   };
 }
 

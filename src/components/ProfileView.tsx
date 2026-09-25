@@ -11,36 +11,31 @@ import {
   ArrowDownRight,
   Clock,
   Award,
-  Activity,
   ShieldCheck,
-  CheckCircle2,
   ExternalLink,
-  PlusCircle,
-  FileCheck,
   Info,
-  RotateCcw,
-  Sparkles,
+  Swords,
+  Layers,
 } from 'lucide-react';
 import {
   CertifiedMatch,
   getCertifiedMatches,
   computeRadarAnalysis,
-  clearMatches,
 } from '../lib/matchStore';
 import { MatchAuditModal } from './MatchAuditModal';
-import { ScoreboardCertifierModal } from './ScoreboardCertifierModal';
 import { soundManager } from '../lib/audioManager';
 
-export const ProfileView: React.FC = () => {
+interface ProfileViewProps {
+  onFindMatch?: () => void;
+}
+
+export const ProfileView: React.FC<ProfileViewProps> = ({ onFindMatch }) => {
   const { user } = useAuth();
 
   // Load certified matches from store
   const [matches, setMatches] = useState<CertifiedMatch[]>([]);
   const [selectedAuditMatch, setSelectedAuditMatch] = useState<CertifiedMatch | null>(null);
-  const [isCertifyModalOpen, setIsCertifyModalOpen] = useState(false);
   const [activeStatTab, setActiveStatTab] = useState<string | null>(null);
-  const [isVerifyingSteam, setIsVerifyingSteam] = useState(false);
-  const [steamVerifyProof, setSteamVerifyProof] = useState<any | null>(null);
 
   // Load matches on mount or when user changes
   useEffect(() => {
@@ -51,49 +46,13 @@ export const ProfileView: React.FC = () => {
   // Compute dynamic ELO and rank from matches
   const baseElo = user?.elo || 1200;
   const currentElo = matches.length > 0 ? matches[0].eloAfter : baseElo;
-  const { currentLevel, progressPercent, nextLevelElo } = getLevelProgress(currentElo);
+  const { currentLevel, progressPercent, nextLevelElo, isCalibrating } = getLevelProgress(
+    currentElo,
+    matches.length
+  );
 
   // Compute radar mathematically from real matches
   const radarAnalysis = computeRadarAnalysis(matches, user?.karma || 100);
-
-  const handleMatchCertified = (newMatch: CertifiedMatch) => {
-    const updated = [newMatch, ...matches];
-    setMatches(updated);
-  };
-
-  const handleResetMatches = () => {
-    if (window.confirm('Voulez-vous réinitialiser vos matchs enregistrés pour démarrer une phase de calibration vierge ?')) {
-      soundManager.playBanSound();
-      clearMatches(user?.id);
-      setMatches([]);
-    }
-  };
-
-  const handleVerifySteamLive = async () => {
-    if (!user?.steamId) return;
-    setIsVerifyingSteam(true);
-    soundManager.playPickSound();
-
-    try {
-      const endpoint =
-        window.location.port === '5173'
-          ? 'http://localhost:3001/api/auth/steam/direct-lookup'
-          : '/api/auth/steam/direct-lookup';
-
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ steamId: user.steamId }),
-      });
-      const data = await res.json();
-      setSteamVerifyProof(data);
-      soundManager.playVictory();
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsVerifyingSteam(false);
-    }
-  };
 
   const winCount = matches.filter((m) => m.isWin).length;
   const winRate = matches.length > 0 ? Number(((winCount / matches.length) * 100).toFixed(1)) : 0;
@@ -134,18 +93,18 @@ export const ProfileView: React.FC = () => {
                   title="Voir le profil officiel Valve Steam"
                 >
                   <ShieldCheck className="w-3.5 h-3.5 text-[#66c0f4]" />
-                  <span>SteamID: {user.steamId.slice(0, 7)}...{user.steamId.slice(-4)}</span>
+                  <span>SteamID: {user.steamId ? `${user.steamId.slice(0, 7)}...${user.steamId.slice(-4)}` : 'Vérifié'}</span>
                   <ExternalLink className="w-3 h-3 ml-0.5 opacity-70" />
                 </a>
               ) : (
-                <span className="px-2.5 py-0.5 rounded-full bg-zinc-800 text-zinc-400 text-xs font-semibold">
+                <span className="px-2.5 py-0.5 rounded-full bg-zinc-800 text-zinc-400 text-xs font-mono">
                   Mode Invité
                 </span>
               )}
 
-              {/* VAC Status */}
+              {/* VAC status */}
               <span
-                className={`px-2.5 py-0.5 rounded-full text-xs font-mono font-bold border ${
+                className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
                   user?.vacBanned
                     ? 'bg-red-950 text-red-400 border-red-800'
                     : 'bg-emerald-950 text-emerald-400 border-emerald-800'
@@ -154,104 +113,90 @@ export const ProfileView: React.FC = () => {
                 {user?.vacBanned ? 'Bannissement VAC Détecté' : 'VAC: Conforme (0 ban)'}
               </span>
 
-              {/* Sentinel verified */}
+              {/* Karma status */}
               <span className="px-2.5 py-0.5 rounded-full bg-zinc-800 text-zinc-300 text-xs font-semibold">
                 Karma : {radarAnalysis.stats.karma}% (Audité)
               </span>
             </div>
 
             <p className="text-xs text-zinc-400 mb-4 max-w-xl">
-              Toutes les statistiques, pourcentages et historiques de cette fiche sont certifiés par le protocole d'arbitrage FogLeague et vérifiables par empreinte SHA-256.
+              Fiche officielle certifiée par le protocole d'arbitrage FogLeague. Les scores et historiques sont scellés par signature cryptographique SHA-256.
             </p>
 
             {/* Level & Elo Progress */}
             <div className="space-y-1.5 max-w-md">
               <div className="flex justify-between text-xs font-mono">
                 <span className="text-zinc-400">
-                  Progression vers le <strong className="text-faceit-orange">Rang {currentLevel + 1} de l'Épreuve</strong>
+                  {isCalibrating ? (
+                    <strong className="text-amber-400">Phase de Placement (0/5 Matchs)</strong>
+                  ) : (
+                    <>
+                      Progression vers le <strong className="text-faceit-orange">Rang {currentLevel + 1}</strong>
+                    </>
+                  )}
                 </span>
                 <span className="text-white font-bold">
-                  {currentElo} / {nextLevelElo} ELO
+                  {currentElo} {isCalibrating ? 'ELO (Initial)' : `/ ${nextLevelElo} ELO`}
                 </span>
               </div>
               <div className="w-full h-3 bg-zinc-800 rounded-full overflow-hidden p-0.5 border border-zinc-700">
                 <div
                   className="h-full bg-gradient-to-r from-faceit-orange to-orange-400 rounded-full transition-all duration-1000 shadow-faceit-glow"
-                  style={{ width: `${progressPercent}%` }}
+                  style={{ width: `${isCalibrating ? 15 : progressPercent}%` }}
                 />
               </div>
             </div>
 
-            {/* Verification buttons */}
-            <div className="mt-4 flex flex-wrap gap-2.5 justify-center md:justify-start">
-              <button
-                onClick={handleVerifySteamLive}
-                disabled={isVerifyingSteam}
-                className="px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 text-xs font-semibold flex items-center gap-1.5 transition-colors"
-              >
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                <span>{isVerifyingSteam ? 'Interrogation Valve...' : 'Audit Steam Direct'}</span>
-              </button>
-
-              <button
-                onClick={() => setIsCertifyModalOpen(true)}
-                className="px-3 py-1.5 rounded-xl bg-faceit-orange hover:bg-orange-600 text-white text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-faceit-glow transition-all"
-              >
-                <PlusCircle className="w-3.5 h-3.5" />
-                <span>Certifier un Match (Scoreboard)</span>
-              </button>
-
-              <button
-                onClick={handleResetMatches}
-                className="px-3 py-1.5 rounded-xl bg-zinc-800/80 hover:bg-zinc-700/80 border border-zinc-800 text-zinc-400 hover:text-zinc-200 text-xs transition-colors flex items-center gap-1"
-                title="Remettre les matchs à zéro pour calibrer"
-              >
-                <RotateCcw className="w-3 h-3" />
-                <span>Réinitialiser</span>
-              </button>
-            </div>
-
-            {/* Live Steam proof drawer if triggered */}
-            {steamVerifyProof && (
-              <div className="mt-3 p-3 rounded-xl bg-black/40 border border-emerald-500/30 text-xs font-mono text-emerald-300">
-                <div className="flex items-center gap-1.5 font-bold mb-1">
-                  <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                  <span>Rapport d'Intégrité Valve SteamCommunity :</span>
-                </div>
-                <div className="text-[11px] text-zinc-400">
-                  Pseudo : <strong className="text-white">{steamVerifyProof.user?.name}</strong> • SteamID64 : <strong className="text-white">{steamVerifyProof.user?.steamId}</strong> • VAC Ban : <strong className="text-emerald-400">{steamVerifyProof.user?.vacBanned ? 'OUI' : 'NON (0 ban)'}</strong> • Trust : <strong className="text-emerald-400">{steamVerifyProof.user?.trustFactor}</strong>
-                </div>
+            {/* Call to action */}
+            {onFindMatch && (
+              <div className="mt-4 flex flex-wrap gap-2.5 justify-center md:justify-start">
+                <button
+                  onClick={onFindMatch}
+                  className="px-4 py-2 rounded-xl bg-faceit-orange hover:bg-orange-600 text-white font-bold text-xs uppercase tracking-wider flex items-center gap-2 shadow-faceit-glow transition-all"
+                >
+                  <Swords className="w-4 h-4" />
+                  <span>Trouver un Match Officiel</span>
+                </button>
               </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* Spider Chart + Stats Highlights */}
+      {/* Analytics Grid: Radar + Stats Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Radar Spider Chart — 100% Calculated */}
-        <div className="bg-[#141417] border border-zinc-800 p-6 rounded-3xl shadow-xl flex flex-col items-center justify-between">
+        {/* Radar Chart Card */}
+        <div className="bg-[#141417] border border-zinc-800 p-6 rounded-2xl flex flex-col items-center justify-between shadow-xl">
           <div className="w-full flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <Activity className="w-5 h-5 text-faceit-orange" />
-              <h3 className="font-black text-sm uppercase text-white tracking-wide">
-                Radar d'Aptitude Certifié
+            <div>
+              <h3 className="text-sm font-black uppercase text-white tracking-wider flex items-center gap-1.5">
+                <Shield className="w-4 h-4 text-faceit-orange" />
+                <span>Radar d'Aptitude</span>
               </h3>
+              <p className="text-[11px] text-zinc-500 font-mono">Performances mesurées en match</p>
             </div>
-            <span className="px-2 py-0.5 rounded-md bg-emerald-950/80 text-emerald-400 border border-emerald-800 text-[10px] font-mono font-bold">
-              {radarAnalysis.isCalibrated ? 'ÉTALONNÉ' : 'CALIBRATION'}
+            <span
+              className={`px-2 py-0.5 rounded-md text-[10px] font-mono font-bold border ${
+                radarAnalysis.isCalibrated
+                  ? 'bg-emerald-950/80 text-emerald-400 border-emerald-800'
+                  : 'bg-amber-950/80 text-amber-400 border-amber-800'
+              }`}
+            >
+              {radarAnalysis.isCalibrated ? 'ÉTALONNÉ' : 'EN CALIBRAGE'}
             </span>
           </div>
 
           <RadarChart stats={radarAnalysis.stats} size={250} />
 
-          {/* Dynamic caption — REAL count, no fake "50 parties" */}
+          {/* Dynamic caption */}
           <div className="w-full text-center mt-3">
             <div className="text-xs text-zinc-300 font-semibold">
               Calculé sur <strong className="text-faceit-orange">{radarAnalysis.matchesCount} match(s)</strong> officiel(s) enregistré(s)
             </div>
             <div className="text-[10px] text-zinc-500 font-mono mt-0.5">
-              Chaque axe correspond à la moyenne vérifiée de vos performances en jeu
+              {radarAnalysis.matchesCount === 0
+                ? 'Jouez vos 5 premiers matchs en file classée pour débloquer votre graphique'
+                : 'Moyenne vérifiée de vos performances réelles en jeu'}
             </div>
           </div>
         </div>
@@ -261,23 +206,25 @@ export const ProfileView: React.FC = () => {
           <div className="bg-[#141417] border border-zinc-800 p-5 rounded-2xl flex flex-col justify-between">
             <div className="text-xs uppercase font-bold text-zinc-400 mb-1 flex items-center gap-1.5">
               <Trophy className="w-4 h-4 text-faceit-orange" />
-              <span>Taux de Victoire Certifié</span>
+              <span>Taux de Victoire</span>
             </div>
             <div className="text-3xl font-black text-white font-mono">
-              {winRate}%
+              {matches.length === 0 ? '—' : `${winRate}%`}
             </div>
             <div className="text-[11px] text-zinc-500 mt-1 font-mono">
-              {winCount} victoires sur {matches.length} match(s) homologué(s)
+              {matches.length === 0
+                ? 'Non étalonné (0 match)'
+                : `${winCount} victoires sur ${matches.length} match(s)`}
             </div>
           </div>
 
           <div className="bg-[#141417] border border-zinc-800 p-5 rounded-2xl flex flex-col justify-between">
             <div className="text-xs uppercase font-bold text-zinc-400 mb-1 flex items-center gap-1.5">
               <Skull className="w-4 h-4 text-red-400" />
-              <span>Performance Létalité (Tueur)</span>
+              <span>Létalité (Tueur)</span>
             </div>
             <div className="text-3xl font-black text-white font-mono">
-              {radarAnalysis.stats.lethality}%
+              {matches.length === 0 ? '—' : `${radarAnalysis.stats.lethality}%`}
             </div>
             <div className="text-[11px] text-zinc-500 mt-1 font-mono">
               {radarAnalysis.breakdown.lethality.formula}
@@ -287,10 +234,10 @@ export const ProfileView: React.FC = () => {
           <div className="bg-[#141417] border border-zinc-800 p-5 rounded-2xl flex flex-col justify-between">
             <div className="text-xs uppercase font-bold text-zinc-400 mb-1 flex items-center gap-1.5">
               <Shield className="w-4 h-4 text-blue-400" />
-              <span>Performance Poursuite (Survivant)</span>
+              <span>Poursuite (Survivant)</span>
             </div>
             <div className="text-3xl font-black text-white font-mono">
-              {radarAnalysis.stats.chase}%
+              {matches.length === 0 ? '—' : `${radarAnalysis.stats.chase}%`}
             </div>
             <div className="text-[11px] text-zinc-500 mt-1 font-mono">
               {radarAnalysis.breakdown.chase.formula}
@@ -318,7 +265,7 @@ export const ProfileView: React.FC = () => {
           <div className="flex items-center gap-2">
             <Info className="w-5 h-5 text-faceit-orange" />
             <h3 className="text-sm font-black uppercase text-white tracking-wider">
-              Audit Mathématique du Radar de Compétences (Transparence Totale)
+              Détail des Compétences Compétitives
             </h3>
           </div>
           <span className="text-xs text-zinc-500 font-mono">
@@ -348,7 +295,9 @@ export const ProfileView: React.FC = () => {
               }`}
             >
               <div className="text-[10px] text-zinc-400 font-bold uppercase">{item.label}</div>
-              <div className="text-lg font-black text-white font-mono mt-0.5">{item.stat.value}%</div>
+              <div className="text-lg font-black text-white font-mono mt-0.5">
+                {matches.length === 0 && item.key !== 'karma' ? '—' : `${item.stat.value}%`}
+              </div>
               <div className="text-[10px] text-zinc-500 mt-1 truncate">{item.stat.formula}</div>
             </button>
           ))}
@@ -358,7 +307,7 @@ export const ProfileView: React.FC = () => {
         {activeStatTab && (
           <div className="p-4 rounded-xl bg-black/40 border border-zinc-800 text-xs space-y-1.5 animate-fadeIn">
             <div className="font-bold text-faceit-orange uppercase tracking-wide">
-              Détails du calcul pour l'axe : {activeStatTab.toUpperCase()}
+              Détails du calcul : {activeStatTab.toUpperCase()}
             </div>
             <div className="text-zinc-300">
               {(radarAnalysis.breakdown as any)[activeStatTab]?.details}
@@ -370,36 +319,34 @@ export const ProfileView: React.FC = () => {
         )}
       </div>
 
-      {/* Match History with SHA-256 Audit Inspection */}
+      {/* Match History */}
       <div className="bg-[#141417] border border-zinc-800 rounded-2xl p-6 shadow-xl space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-base font-black uppercase text-white tracking-wider flex items-center gap-2">
             <Clock className="w-5 h-5 text-faceit-orange" />
-            <span>Historique des Matchs Compétitifs Certifiés</span>
+            <span>Historique des Matchs Compétitifs Officiels</span>
           </h3>
 
-          <button
-            onClick={() => setIsCertifyModalOpen(true)}
-            className="px-3.5 py-1.5 rounded-xl bg-faceit-orange hover:bg-orange-600 text-white font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-faceit-glow transition-all"
-          >
-            <PlusCircle className="w-3.5 h-3.5" />
-            <span>Ajouter / Certifier</span>
-          </button>
+          <span className="text-xs font-mono text-zinc-400">
+            {matches.length} match(s) homologué(s)
+          </span>
         </div>
 
         {matches.length === 0 ? (
           <div className="text-center py-12 bg-[#18181d] rounded-xl border border-dashed border-zinc-800 p-6 space-y-3">
-            <FileCheck className="w-8 h-8 text-zinc-600 mx-auto" />
-            <div className="font-bold text-white text-sm">Aucun match certifié enregistré</div>
+            <Layers className="w-8 h-8 text-zinc-600 mx-auto" />
+            <div className="font-bold text-white text-sm">Aucun match compétitif enregistré</div>
             <p className="text-xs text-zinc-400 max-w-md mx-auto">
-              Rejoins la file classée pour jouer un match officiel, ou certifie un rapport de fin de partie Dead by Daylight pour démarrer ton calibrage.
+              Rejoignez la file de matchmaking pour disputer votre premier match officiel DBD et débuter votre étalonnage compétitif.
             </p>
-            <button
-              onClick={() => setIsCertifyModalOpen(true)}
-              className="px-4 py-2 rounded-xl bg-faceit-orange hover:bg-orange-600 text-white font-bold text-xs uppercase tracking-wider shadow-faceit-glow"
-            >
-              Certifier un premier Match
-            </button>
+            {onFindMatch && (
+              <button
+                onClick={onFindMatch}
+                className="px-5 py-2.5 rounded-xl bg-faceit-orange hover:bg-orange-600 text-white font-bold text-xs uppercase tracking-wider shadow-faceit-glow"
+              >
+                Lancer la Recherche de Match
+              </button>
+            )}
           </div>
         ) : (
           <div className="space-y-3">
@@ -442,7 +389,6 @@ export const ProfileView: React.FC = () => {
                     {match.isWin ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
                   </div>
 
-                  {/* Verification button */}
                   <button
                     onClick={() => {
                       soundManager.playPickSound();
@@ -452,7 +398,7 @@ export const ProfileView: React.FC = () => {
                     title="Inspecter le certificat d'arbitrage et l'empreinte SHA-256"
                   >
                     <ShieldCheck className="w-3.5 h-3.5 text-faceit-orange" />
-                    <span>Vérifier Preuve</span>
+                    <span>Certificat SHA-256</span>
                   </button>
                 </div>
               </div>
@@ -466,15 +412,6 @@ export const ProfileView: React.FC = () => {
         match={selectedAuditMatch}
         isOpen={Boolean(selectedAuditMatch)}
         onClose={() => setSelectedAuditMatch(null)}
-      />
-
-      {/* Certifier Modal */}
-      <ScoreboardCertifierModal
-        isOpen={isCertifyModalOpen}
-        onClose={() => setIsCertifyModalOpen(false)}
-        currentElo={currentElo}
-        userId={user?.id}
-        onMatchCertified={handleMatchCertified}
       />
     </div>
   );

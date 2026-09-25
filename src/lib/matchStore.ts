@@ -213,55 +213,55 @@ export function clearMatches(userId?: string): void {
 // ==============================================================
 // 🧮 CALCUL MATHÉMATIQUE DU RADAR CHART À PARTIR DES MATCHS RÉELS
 // ==============================================================
-export function computeRadarAnalysis(matches: CertifiedMatch[], karma: number = 98): RadarAnalysis {
+export function computeRadarAnalysis(matches: CertifiedMatch[], karma: number = 100): RadarAnalysis {
   if (matches.length === 0) {
     return {
       isCalibrated: false,
       matchesCount: 0,
       stats: {
-        chase: 50,
-        macro: 50,
-        altruism: 50,
-        lethality: 50,
-        vision: 50,
+        chase: 0,
+        macro: 0,
+        altruism: 0,
+        lethality: 0,
+        vision: 0,
         karma: karma,
       },
       breakdown: {
         chase: {
-          value: 50,
+          value: 0,
           formula: 'Non étalonné (0 match)',
           sourceMatchesCount: 0,
-          details: 'Jouez ou certifiez un match pour mesurer votre temps moyen de poursuite.',
+          details: 'Disputez vos matchs officiels pour calibrer votre vitesse et temps de poursuite.',
         },
         macro: {
-          value: 50,
+          value: 0,
           formula: 'Non étalonné (0 match)',
           sourceMatchesCount: 0,
           details: 'Calculé sur les générateurs réparés et réparations contestées.',
         },
         altruism: {
-          value: 50,
+          value: 0,
           formula: 'Non étalonné (0 match)',
           sourceMatchesCount: 0,
           details: 'Mesuré sur les soins sécurisés et les décrochages en partie classée.',
         },
         lethality: {
-          value: 50,
+          value: 0,
           formula: 'Non étalonné (0 match)',
           sourceMatchesCount: 0,
           details: 'Ratio de crochets et sacrifices par match en rôle Tueur.',
         },
         vision: {
-          value: 50,
+          value: 0,
           formula: 'Non étalonné (0 match)',
           sourceMatchesCount: 0,
           details: 'Efficacité tactique et utilisation des synergies de compétences.',
         },
         karma: {
           value: karma,
-          formula: 'Score Fair-Play initial (100% - pénalités)',
+          formula: 'Score initial de fair-play (100% - pénalités)',
           sourceMatchesCount: 0,
-          details: 'Aucun abandon ni rapport de tricherie signalé.',
+          details: 'Ajusté automatiquement selon votre fair-play et respect des règles.',
         },
       },
     };

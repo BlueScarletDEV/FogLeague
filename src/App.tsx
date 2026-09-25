@@ -295,7 +295,7 @@ const FogLeagueApp: React.FC = () => {
 
         {currentTab === 'rules' && <RulesView />}
 
-        {currentTab === 'profile' && <ProfileView />}
+        {currentTab === 'profile' && <ProfileView onFindMatch={handleOpenQueue} />}
       </main>
 
       {/* Footer */}
