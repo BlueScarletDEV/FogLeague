@@ -1,0 +1,29 @@
+# ==============================================================
+# FOGLEAGUE — RENDER.COM BLUEPRINT CONFIGURATION (100% GRATUIT)
+# ==============================================================
+# Déploie automatiquement le backend Node.js + WebSocket sur Render.com
+# Compatible avec le plan Free de Render avec support natif des WebSockets.
+
+services:
+  - type: web
+    name: fogleague-backend
+    runtime: node
+    plan: free
+    region: frankfurt # Serveur en Europe (faible latence)
+    buildCommand: npm install && npm run build
+    startCommand: node server/index.js
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: FRONTEND_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: STEAM_API_KEY
+        sync: false

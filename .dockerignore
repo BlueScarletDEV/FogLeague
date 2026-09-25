@@ -1,0 +1,9 @@
+node_modules
+dist
+.git
+.github
+*.log
+.env
+.session_secret
+.DS_Store
+Thumbs.db

@@ -1,0 +1,29 @@
+# ==============================================================
+# FOGLEAGUE — DOCKER COMPOSE CONFIGURATION (SELF-HOSTED / VPS)
+# Lancement en 1 commande : docker compose up -d --build
+# ==============================================================
+
+version: '3.8'
+
+services:
+  fogleague:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fogleague_app
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3001}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - STEAM_API_KEY=${STEAM_API_KEY}
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3001/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
